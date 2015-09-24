@@ -94,6 +94,8 @@ int main() {
     cellGP[3].x = -sqrt3;
     cellGP[3].y =  sqrt3;
 
+    // todo: cellGW ??????
+
     matrA = new double***[N+2];
     matrInvA = new double***[N+2];
     for (int i = 0; i < N+2; i++) {
