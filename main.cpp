@@ -14,6 +14,9 @@ const double H = 1.0/N;
 const double TMAX = 1.0;
 const double TAU = 1.e-2;
 
+const int FILE_SAVE_STEP = 10;
+const int PRINT_STEP = 1;
+
 VECTOR u[N+2][N+2];
 Point  c[N+2][N+2]; // центры ячеек
 
@@ -45,11 +48,17 @@ void calculateDoubleIntegral();
 void calculateLineIntegral();
 void calculateSolution();
 void incrementTime();
+void output();
+void saveResult(char *fName);
+void fillWithInitialData();
+void calculateCellCenters();
 
 int main() {
     // заполняем вспомогательные массивы
+    calculateCellCenters();
     fillGaussPoints();
     calculateMassMatrix();
+    fillWithInitialData();
 
     while (t < TMAX) {
         incrementTime();
@@ -60,17 +69,12 @@ int main() {
 
         // Вычисляем значения решения в ячейках использую предыдущий слой и правую часть уравнения
         calculateSolution();
+
         // вывод через определенное количество шагов
-        // ....
+        output();
     }
     // завершение приложения, очистка памяти..
     return 0;
-}
-
-void incrementTime()
-{
-    step++;
-    t += TAU;
 }
 
 void fillGaussPoints()
@@ -143,8 +147,7 @@ void calculateDoubleIntegral()
                 gp *= H; // todo: неоходимо изменить если не квадратные ячейки
                 gp += c[i][j];
                 gp *= 0.5;
-                double i_tedU = getU(i,j,gp);
-                s += i_tedU*(getDFDX(i,gp)+getDFDY(i,gp));
+                s += getU(i,j,gp)*(getDFDX(i,gp)+getDFDY(i,gp));
                 s *= cellGW[igp];
             }
 
@@ -289,4 +292,64 @@ VECTOR getDFDY(int iCell, Point pt)
     }
 }
 
+void output()
+{
+    if (step % FILE_SAVE_STEP  == 0)
+    {
+        char fName[50];
+        sprintf(fName, "res_%010d.csv", step);
 
+        saveResult(fName);
+    }
+
+    if (step % PRINT_STEP == 0)
+    {
+        printf("step: %d\t\ttime step: %.16f\n", step, t);
+    }
+}
+
+void saveResult(char *fName)
+{
+    FILE * fp = fopen(fName, "w");
+
+    fprintf(fp, "x,y,u\n");
+    printf("File '%s' saved...\n", fName);
+
+    for(int i = 1; i < N; i++) {
+        for(int j = 1; j < N; j++) {
+            double val = getU(i, j, c[i][j]);
+            fprintf(fp, "%f,%f,%f\n", c[i][j].x, c[i][j].y, val);
+        }
+    }
+
+    fclose(fp);
+}
+
+void incrementTime()
+{
+    step++;
+    t += TAU;
+}
+
+void fillWithInitialData()
+{
+    const double r = 0.2;
+    for (int i = 1; i < N; i++) {
+        for (int j = 1; j < N; j++) {
+            u[i][j] = VECTOR(3);
+            Point lc = c[i][j];
+            if ((lc.x-0.5)*(lc.x-0.5) + (lc.y-0.5)*(lc.y-0.5) < r*r)
+            {
+                u[i][j][0] = 10;
+            }
+        }
+    }
+}
+
+void calculateCellCenters() {
+    for (int i = 1; i < N; i++) {
+        for (int j = 1; j < N; j++) {
+            c[i][j] = Point(i*H + H/2, j*H + H/2);
+        }
+    }
+}
