@@ -11,21 +11,22 @@ const int N = 100;
 
 const double H = 1.0/N;
 
-const double TMAX = 1.0;
+const double TMAX = 0.3;
 const double TAU = 1.e-2;
 
 const int FILE_SAVE_STEP = 10;
 const int PRINT_STEP = 1;
 
 VECTOR u[N+2][N+2];
-Point  c[N+2][N+2]; // С†РµРЅС‚СЂС‹ СЏС‡РµРµРє
+Point  c[N+2][N+2]; // центры ячеек
 
-VECTOR u1[N+2][N+2]; // СЃСЋРґР° СЃСѓРјРјРёСЂСѓРµРј РёРЅС‚РµРіСЂР°Р»С‹
+VECTOR u1[N+2][N+2]; // сюда суммируем интегралы
 
 Point cellGP[4];
-double cellGW[4];
+double cellGW[4] = {1, 1, 1, 1};
+const double J = 0.25*H*H; //якобиан
 
-// РјР°С‚СЂРёС†Р° РјР°СЃСЃ
+// матрица масс
 double			****matrA;
 double			****matrInvA;
 
@@ -34,7 +35,7 @@ double t = 0.0;
 
 const int FUNC_COUNT = 3;
 
-double sqrt3 = 1.0/sqrt(3.0);
+double sqrt3 = 1.0/3.0;
 
 VECTOR getF(int i, int j, Point pt);
 VECTOR getDFDX(int iCell, Point pt);
@@ -53,8 +54,89 @@ void saveResult(char *fName);
 void fillWithInitialData();
 void calculateCellCenters();
 
+void transposedMatr( double **a, int n) {
+	for(int row = 0; row < n - 1; row++)
+        for(int col = row + 1; col < n; col++)
+            std::swap(a[col][row], a[row][col]);
+    }
+
+double determinantMatr(double **a, int N) { 
+	int i,j; 
+	double **matr1; 
+	double determ=0; 
+
+		if (N==2) 
+			{ 
+				determ=a[0][0]*a[1][1]-a[0][1]*a[1][0]; 
+			} 
+		else 
+			{ 
+				matr1=new double*[N-1]; 
+
+				for(i=0;i<N;i++) { 
+					for(j=0;j<N-1;j++) { 
+						if(j<i) { matr1[j]=a[j]; } 
+						else { matr1[j]=a[j+1]; } 
+					} 
+					determ+=pow(-1,(i+j))*determinantMatr(matr1,N-1)*a[i][N-1]; 
+			} 
+			delete matr1; 
+			} 
+
+		return determ; 
+} 
+
+double** multMatrix(double **a, double **b,int n){
+	double **result = new double*[n];
+	for (int i=0;i<n;i++)
+	{
+		result[i] = new double[n];
+	}
+
+	for (int i=0;i<n;i++)
+	{
+		for (int j=0;j<n;j++)
+		{
+			result[i][j] = 0;
+			for (int k=0;k<n;k++)
+			{
+				result[i][j] += a[i][k]*b[k][j];
+				cout<<result[i][j]<<"  ";
+			}
+			cout<<endl;
+		}
+	}
+
+	return result;
+}
+
+void multMatrixNum(double** a, double num, int n){
+	for (int i=0;i<n;i++)
+	{
+		for (int j=0;j<n;j++)
+		{
+			a[i][j] *= num;
+		}
+	}
+
+}
+double* multMatrixVect(double **a, double *b, int n){
+	double *result = new double[n];
+
+	for (int i=0;i<n;i++)
+	{
+		result[i] = 0;
+		for (int j=0;j<n;j++)
+		{
+			result[i] += a[i][j]*b[j];
+		}
+	}
+
+	return result;
+}
+
 int main() {
-    // Р·Р°РїРѕР»РЅСЏРµРј РІСЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ РјР°СЃСЃРёРІС‹
+    // заполняем вспомогательные массивы
     calculateCellCenters();
     fillGaussPoints();
     calculateMassMatrix();
@@ -63,17 +145,17 @@ int main() {
     while (t < TMAX) {
         incrementTime();
 
-        // РџСЂР°РІР°СЏ С‡Р°СЃС‚СЊ СѓСЂР°РІРЅРµРЅРёСЏ
-        calculateDoubleIntegral(); // РІС‹С‡РёСЃР»СЏРµРј РґРІРѕР№РЅРѕР№ РёРЅС‚РµРіСЂР°Р»
-        calculateLineIntegral(); // РІС‹С‡РёСЃР»СЏРµРј РєСЂРёРІРѕР»РёРЅРµР№РЅС‹Р№ РёРЅС‚РµРіСЂР°Р» РїРѕ РіСЂР°РЅРёС†Рµ РєРІР°РґСЂР°С‚Р°
+        // Правая часть уравнения
+        calculateDoubleIntegral(); // вычисляем двойной интеграл
+        calculateLineIntegral(); // вычисляем криволинейный интеграл по границе квадрата
 
-        // Р’С‹С‡РёСЃР»СЏРµРј Р·РЅР°С‡РµРЅРёСЏ СЂРµС€РµРЅРёСЏ РІ СЏС‡РµР№РєР°С… РёСЃРїРѕР»СЊР·СѓСЋ РїСЂРµРґС‹РґСѓС‰РёР№ СЃР»РѕР№ Рё РїСЂР°РІСѓСЋ С‡Р°СЃС‚СЊ СѓСЂР°РІРЅРµРЅРёСЏ
+        // Вычисляем значения решения в ячейках использую предыдущий слой и правую часть уравнения
         calculateSolution();
 
-        // РІС‹РІРѕРґ С‡РµСЂРµР· РѕРїСЂРµРґРµР»РµРЅРЅРѕРµ РєРѕР»РёС‡РµСЃС‚РІРѕ С€Р°РіРѕРІ
+        // вывод через определенное количество шагов
         output();
     }
-    // Р·Р°РІРµСЂС€РµРЅРёРµ РїСЂРёР»РѕР¶РµРЅРёСЏ, РѕС‡РёСЃС‚РєР° РїР°РјСЏС‚Рё..
+    // завершение приложения, очистка памяти..
     return 0;
 }
 
@@ -110,29 +192,43 @@ void calculateMassMatrix()
         }
     }
 
-    // РІС‹С‡РёСЃР»СЏРµРј РјР°С‚СЂРёС†Сѓ РјР°СЃСЃ
-    for (int i = 1; i <= N; i++) {
-        for (int j = 1; j <= N; j++) {
-            double **a = matrA[i][j];
-            for (int m = 0; m < FUNC_COUNT; m++) {
-                for (int n = 0; n < FUNC_COUNT; n++) {
-                    a[m][n] = 0.0;
-                }
-            }
-            for (int igp = 0; igp < 4; igp++) {
-                Point gp = cellGP[i];
-                gp *= H; // todo: РЅРµРѕС…РѕРґРёРјРѕ РёР·РјРµРЅРёС‚СЊ РµСЃР»Рё РЅРµ РєРІР°РґСЂР°С‚РЅС‹Рµ СЏС‡РµР№РєРё
-                gp += c[i][j];
-                gp *= 0.5;
-                VECTOR phi1 = getF(i,j, gp);
-                VECTOR phi2 = getF(i,j, gp);
-                for (int m = 0; m < FUNC_COUNT; m++) {
-                    for (int n = 0; n < FUNC_COUNT; n++) {
-                        a[m][n] += phi1[m] * phi2[n] *  cellGW[igp];
-                    }
-                }
-            }
-        }
+    // вычисляем матрицу масс
+    for (int i = 1; i <= N; i++)
+	{
+				for (int j = 1; j <= N; j++) {
+					double **a = matrA[i][j];
+
+				for (int m = 0; m < FUNC_COUNT; m++) 
+					for (int n = 0; n < FUNC_COUNT; n++) 
+						a[m][n] = 0.0;
+						
+						for (int igp = 0; igp < 4; igp++)
+						{
+								Point gp = cellGP[i];
+								gp *= H; // todo: неоходимо изменить если не квадратные ячейки
+								gp *= 0.5;
+								gp += c[i][j];
+								VECTOR phi1 = getF(i,j, gp);
+								VECTOR phi2 = getF(i,j, gp);
+								for (int m = 0; m < FUNC_COUNT; m++) {
+									for (int n = 0; n < FUNC_COUNT; n++) {
+										a[m][n] += H*H* phi1[m] * phi2[n] * cellGW[igp] * 0.25;
+									}
+								}
+						}
+						//обратная матрица
+						double detA=determinantMatr(a,FUNC_COUNT);
+						transposedMatr(a,FUNC_COUNT);
+						multMatrixNum(a,detA,FUNC_COUNT);
+
+						for (int m = 0; m < FUNC_COUNT; m++) {
+									for (int n = 0; n < FUNC_COUNT; n++) {
+										matrInvA[i][j][m][n]=a[m][n];
+									}
+								}
+
+
+				}
     }
 }
 
@@ -144,10 +240,10 @@ void calculateDoubleIntegral()
             s = 0.0;
             for (int igp = 0; igp < 4; igp++) {
                 Point gp = cellGP[i];
-                gp *= H; // todo: РЅРµРѕС…РѕРґРёРјРѕ РёР·РјРµРЅРёС‚СЊ РµСЃР»Рё РЅРµ РєРІР°РґСЂР°С‚РЅС‹Рµ СЏС‡РµР№РєРё
-                gp += c[i][j];
+                gp *= H; // todo: неоходимо изменить если не квадратные ячейки
                 gp *= 0.5;
-                s += getU(i,j,gp)*(getDFDX(i,gp)+getDFDY(i,gp));
+				gp += c[i][j];
+                s += (getU(i,j,gp)*(getDFDX(i,gp)+getDFDY(i,gp)))*H*H*0.25;
                 s *= cellGW[igp];
             }
 
@@ -315,13 +411,12 @@ void saveResult(char *fName)
     fprintf(fp, "x,y,u\n");
     printf("File '%s' saved...\n", fName);
 
-    for(int i = 1; i < N; i++) {
-        for(int j = 1; j < N; j++) {
-            double val = getU(i, j, c[i][j]);
-            fprintf(fp, "%f,%f,%f\n", c[i][j].x, c[i][j].y, val);
+   for(int i = 0; i < N; i++) {
+        for(int j = 0; j < N; j++) {
+           // double val = getU(i, j, с[i][j]);
+            fprintf(fp, "%f,%f,%f\n", i*H, j*H, u[i][j]);
         }
     }
-
     fclose(fp);
 }
 
@@ -334,21 +429,21 @@ void incrementTime()
 void fillWithInitialData()
 {
     const double r = 0.2;
-    for (int i = 1; i < N; i++) {
-        for (int j = 1; j < N; j++) {
-            u[i][j] = VECTOR(3);
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            //u[i][j] = VECTOR(3);
             Point lc = c[i][j];
             if ((lc.x-0.5)*(lc.x-0.5) + (lc.y-0.5)*(lc.y-0.5) < r*r)
             {
-                u[i][j][0] = 10;
+                u[i][j]= 10;
             }
         }
     }
 }
 
 void calculateCellCenters() {
-    for (int i = 1; i < N; i++) {
-        for (int j = 1; j < N; j++) {
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
             c[i][j] = Point(i*H + H/2, j*H + H/2);
         }
     }
