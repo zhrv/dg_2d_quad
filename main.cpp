@@ -145,8 +145,8 @@ void calculateDoubleIntegral()
             for (int igp = 0; igp < 4; igp++) {
                 Point gp = cellGP[i];
                 gp *= H; // todo: неоходимо изменить если не квадратные ячейки
-                gp += c[i][j];
                 gp *= 0.5;
+                gp += c[i][j];
                 s += getU(i,j,gp)*(getDFDX(i,gp)+getDFDY(i,gp));
                 s *= cellGW[igp];
             }
