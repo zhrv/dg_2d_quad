@@ -160,6 +160,12 @@ const VECTOR operator+(const VECTOR &left, const VECTOR &right) {
     return result;
 }
 
+const VECTOR operator-(const VECTOR &left, const VECTOR &right) {
+    VECTOR result(left);
+    result -= right;
+    return result;
+}
+
 const VECTOR operator*(const double &left, const VECTOR &right) {
     VECTOR result(right);
     result *= left;
