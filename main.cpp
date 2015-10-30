@@ -14,7 +14,7 @@ const int N = 200;
 
 const double H = 1.0/N;
 
-const double TAU = H/3.0;
+const double TAU = 0.1*H;
 const double TMAX = 200*TAU;
 
 const int FILE_SAVE_STEP = 1;
@@ -60,7 +60,7 @@ int main() {
         set_bounds();
 
         // Правая часть уравнения
-        //calculateDoubleIntegral(); // вычисляем двойной интеграл
+        calculateDoubleIntegral(); // вычисляем двойной интеграл
         calculateLineIntegral(); // вычисляем криволинейный интеграл по границе квадрата
 
         // Вычисляем значения решения в ячейках использую предыдущий слой и правую часть уравнения
@@ -87,6 +87,8 @@ void calculateMassMatrix() {
 void calculateDoubleIntegral() {
     for (int i = 1; i <= N; i++) {
         for (int j = 1; j <= N; j++) {
+
+
 
             GaussIntegrator2d gi( c[i][j].x - H/2.0, c[i][j].x + H/2.0,
                                   c[i][j].y - H/2.0, c[i][j].y + H/2.0 );
@@ -121,7 +123,7 @@ void calculateDoubleIntegral() {
 #define TSIDE 1
 #define BSIDE -1
 
-VECTOR calculateFlux(int i, int j, int i1, int j1, int direction, int side){
+VECTOR calculateFlux(int i, int j,int direction, int side){
 
     double a;
     double b;
@@ -133,30 +135,41 @@ VECTOR calculateFlux(int i, int j, int i1, int j1, int direction, int side){
         a = c[i][j].x-H/2.0;
         b = c[i][j].x+H/2.0;
     }
-
-    GaussIntegrator1d gi(a, b);
+    const double SQRT3 = 1.0/sqrt(3.0);
+    double gp[2] = {0.5*(a+b)-0.5*(b-a)*SQRT3, 0.5*(a+b)+0.5*(b-a)*SQRT3};
+    double gJ = 0.5*(b-a);
 
     VECTOR values[2];
 
     Point points[2];
 
     if(direction == XDIR) {
-        points[0] = Point(c[i][j].x+side*H/2.0, gi.getFirstPoint());
-        points[1] = Point(c[i][j].x+side*H/2.0, gi.getSecondPoint());
+        points[0] = Point(c[i][j].x+side*H/2.0, gp[0]);
+        points[1] = Point(c[i][j].x+side*H/2.0, gp[1]);
     } else {
-        points[0] = Point(gi.getFirstPoint(), c[i][j].y+side*H/2.0);
-        points[1] = Point(gi.getSecondPoint(), c[i][j].y+side*H/2.0);
+        points[0] = Point(gp[0], c[i][j].y+side*H/2.0);
+        points[1] = Point(gp[1], c[i][j].y+side*H/2.0);
+    }
+
+    int i1, j1;
+
+    if(direction == XDIR) {
+        i1 = (side == LSIDE) ? i-1 : i;
+        j1 = j;
+    } else {
+        i1 = i;
+        j1 = (side == BSIDE) ? j-1 : j;
     }
 
     for (int k = 0; k < 2; ++k) {
-        values[k] = getF(i,j,points[k]);
+        values[k]  = getF(i,j,points[k]);
         values[k] *= getU(i1, j1, points[k]);
     }
 
     VECTOR flux(3);
 
     for (int l = 0; l < 3; ++l) {
-        flux[l] = gi.calculate(values[0][l], values[1][l]);
+        flux[l] = gJ*(values[0][l]+values[1][l]);
     }
 
     return flux;
@@ -165,13 +178,11 @@ VECTOR calculateFlux(int i, int j, int i1, int j1, int direction, int side){
 void calculateLineIntegral() {
     for (int i = 1; i <= N; ++i) {
         for (int j = 1; j <= N; ++j) {
-            VECTOR leftFlux     = calculateFlux(i, j,   i-1, j,   XDIR, LSIDE); // |
-            VECTOR rightFlux    = calculateFlux(i, j,   i,   j,   XDIR, RSIDE); //   |
+            u1[i][j] += calculateFlux(i, j, XDIR, LSIDE); // |
+            u1[i][j] -= calculateFlux(i, j, XDIR, RSIDE); //   |
 
-            VECTOR topFlux      = calculateFlux(i, j,   i,   j,   YDIR, TSIDE); //  -
-            VECTOR bottomFlux   = calculateFlux(i, j,   i,   j-1, YDIR, BSIDE); //  _
-
-            u1[i][j] -= (rightFlux - leftFlux + topFlux - bottomFlux);
+            u1[i][j] -= calculateFlux(i, j, YDIR, TSIDE); //  -
+            u1[i][j] += calculateFlux(i, j, YDIR, BSIDE); //  _
         }
     }
 }
