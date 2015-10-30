@@ -10,14 +10,14 @@
 
 using namespace std;
 
-const int N = 200;
+const int N = 100;
 
 const double H = 1.0/N;
 
-const double TAU = 0.1*H;
-const double TMAX = 200*TAU;
+const double TAU = 0.01*H;
+const double TMAX = 2000*TAU;
 
-const int FILE_SAVE_STEP = 1;
+const int FILE_SAVE_STEP = 10;
 const int PRINT_STEP = 1;
 
 VECTOR u[N+2][N+2];
@@ -32,6 +32,9 @@ int step = 0;
 double t = 0.0;
 
 VECTOR getF(int i, int j, Point pt);
+VECTOR getDFDX(int i, int j, Point pt);
+VECTOR getDFDY(int i, int j, Point pt);
+
 
 inline double getU(int i, int j, Point pt) { return VECTOR::SCALAR_PROD(u[i][j], getF(i, j, pt)); }
 
@@ -87,29 +90,36 @@ void calculateMassMatrix() {
 void calculateDoubleIntegral() {
     for (int i = 1; i <= N; i++) {
         for (int j = 1; j <= N; j++) {
+            const double SQRT3 = 1.0/sqrt(3.0);
 
+            double ax = c[i][j].x - H/2.0;
+            double bx = c[i][j].x + H/2.0;
+            double ay = c[i][j].y - H/2.0;
+            double by = c[i][j].y + H/2.0;
 
+            double hx = 0.5*(bx-ax);
+            double hy = 0.5*(by-ay);
+            double cx = 0.5*(bx+ax);
+            double cy = 0.5*(by+ay);
 
-            GaussIntegrator2d gi( c[i][j].x - H/2.0, c[i][j].x + H/2.0,
-                                  c[i][j].y - H/2.0, c[i][j].y + H/2.0 );
-            int x = 0;
-            int y = 1;
-
-            double** points = gi.getPoints();
-            double values[gi.N];
-
-            for (int k = 0; k < gi.N; ++k) {
-                Point point(points[k][x], points[k][y]);
-
-                values[k] = getU(i, j, point);
+            Point points[4] ={  Point(cx-hx*SQRT3, cy-hy*SQRT3),
+                                Point(cx-hx*SQRT3, cy+hy*SQRT3),
+                                Point(cx+hx*SQRT3, cy-hy*SQRT3),
+                                Point(cx+hx*SQRT3, cy+hy*SQRT3) };
+            VECTOR vx(3);
+            VECTOR vy(3);
+            VECTOR vs(3);
+            vs = 0;
+            for (int k = 0; k < 4; ++k) {
+                vx = getDFDX(i, j, points[k]);
+                vx *= getU(i, j, points[k]);
+                vs += vx;
+                vy = getDFDY(i, j, points[k]);
+                vy *= getU(i, j, points[k]);
+                vs += vy;
             }
-
-            double s = gi.calculate(values);
-            //VECTOR v(3);
-            //v = getDFDX()
-            u1[i][j][0] = 0.0;
-            u1[i][j][1] = s/H;
-            u1[i][j][2] = s/H;
+            vs *= hx*hy;
+            u1[i][j] = vs;
         }
     }
 }
@@ -272,8 +282,8 @@ void fillWithInitialData() {
             Point lc = c[i][j];
             if (lc.x < 0.5 + r && lc.x > 0.5 - r && lc.y < 0.5 + r && lc.y > 0.5 - r)
             {
-                u[i][j][0] = 10;
-                u1[i][j][0] = 10;
+                u[i][j][0] = 1.0;
+                u1[i][j][0] = 1.0;
             }
         }
     }
