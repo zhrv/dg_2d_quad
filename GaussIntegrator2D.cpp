@@ -25,7 +25,6 @@ void GaussIntegrator2d::init(double *bounds) {
     }
 
     _points = new double*[N];
-
     for (int i = 0; i < N; ++i) {
         _points[i] = new double[2];
         for (int j = 0; j < 2; ++j) {
@@ -35,6 +34,8 @@ void GaussIntegrator2d::init(double *bounds) {
 }
 
 GaussIntegrator2d::~GaussIntegrator2d() {
+    for (int i = 0; i < N; i++)
+        delete[] _points[i];
     delete[] _points;
 }
 

@@ -7,6 +7,7 @@
 class GaussIntegrator1d {
 public:
     GaussIntegrator1d(double a, double b);
+    ~GaussIntegrator1d();
 
     double getFirstPoint();
 
@@ -17,6 +18,6 @@ public:
 private:
     double* _points;
     double _h;
-    double sqrt3 = 1/ std::sqrt(3);
+    double sqrt3 = 1.0/ std::sqrt(3.0);
 };
 #endif

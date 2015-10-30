@@ -10,12 +10,12 @@
 
 using namespace std;
 
-const int N = 20;
+const int N = 200;
 
 const double H = 1.0/N;
 
 const double TAU = H/3.0;
-const double TMAX = 20*TAU;
+const double TMAX = 200*TAU;
 
 const int FILE_SAVE_STEP = 1;
 const int PRINT_STEP = 1;
@@ -60,7 +60,7 @@ int main() {
         set_bounds();
 
         // Правая часть уравнения
-        calculateDoubleIntegral(); // вычисляем двойной интеграл
+        //calculateDoubleIntegral(); // вычисляем двойной интеграл
         calculateLineIntegral(); // вычисляем криволинейный интеграл по границе квадрата
 
         // Вычисляем значения решения в ячейках использую предыдущий слой и правую часть уравнения
@@ -85,8 +85,8 @@ void calculateMassMatrix() {
 }
 
 void calculateDoubleIntegral() {
-    for (int i = 1; i < N+1; i++) {
-        for (int j = 1; j < N+1; j++) {
+    for (int i = 1; i <= N; i++) {
+        for (int j = 1; j <= N; j++) {
 
             GaussIntegrator2d gi( c[i][j].x - H/2.0, c[i][j].x + H/2.0,
                                   c[i][j].y - H/2.0, c[i][j].y + H/2.0 );
@@ -103,6 +103,8 @@ void calculateDoubleIntegral() {
             }
 
             double s = gi.calculate(values);
+            //VECTOR v(3);
+            //v = getDFDX()
             u1[i][j][0] = 0.0;
             u1[i][j][1] = s/H;
             u1[i][j][2] = s/H;
@@ -113,11 +115,11 @@ void calculateDoubleIntegral() {
 #define XDIR 0
 #define YDIR 1
 
-#define LSIDE 1
-#define RSIDE -1
+#define LSIDE -1
+#define RSIDE 1
 
-#define TSIDE -1
-#define BSIDE 1
+#define TSIDE 1
+#define BSIDE -1
 
 VECTOR calculateFlux(int i, int j, int i1, int j1, int direction, int side){
 
@@ -139,43 +141,44 @@ VECTOR calculateFlux(int i, int j, int i1, int j1, int direction, int side){
     Point points[2];
 
     if(direction == XDIR) {
-        points[0] = Point(c[i][j].x-side*H/2.0, gi.getFirstPoint());
-        points[1] = Point(c[i][j].x-side*H/2.0, gi.getSecondPoint());
+        points[0] = Point(c[i][j].x+side*H/2.0, gi.getFirstPoint());
+        points[1] = Point(c[i][j].x+side*H/2.0, gi.getSecondPoint());
     } else {
-        points[0] = Point(gi.getFirstPoint(), c[i][j].y-side*H/2.0);
-        points[1] = Point(gi.getSecondPoint(), c[i][j].y-side*H/2.0);
+        points[0] = Point(gi.getFirstPoint(), c[i][j].y+side*H/2.0);
+        points[1] = Point(gi.getSecondPoint(), c[i][j].y+side*H/2.0);
     }
 
     for (int k = 0; k < 2; ++k) {
-        values[k] = getU(i1, j1, points[k])*getF(i,j,points[k]);
+        values[k] = getF(i,j,points[k]);
+        values[k] *= getU(i1, j1, points[k]);
     }
 
     VECTOR flux(3);
 
     for (int l = 0; l < 3; ++l) {
-        flux[l] = side*H*gi.calculate(values[0][l], values[1][l]);
+        flux[l] = gi.calculate(values[0][l], values[1][l]);
     }
 
     return flux;
 }
 
 void calculateLineIntegral() {
-    for (int i = 1; i < N + 1; ++i) {
-        for (int j = 1; j < N + 1; ++j) {
+    for (int i = 1; i <= N; ++i) {
+        for (int j = 1; j <= N; ++j) {
             VECTOR leftFlux     = calculateFlux(i, j,   i-1, j,   XDIR, LSIDE); // |
             VECTOR rightFlux    = calculateFlux(i, j,   i,   j,   XDIR, RSIDE); //   |
 
             VECTOR topFlux      = calculateFlux(i, j,   i,   j,   YDIR, TSIDE); //  -
             VECTOR bottomFlux   = calculateFlux(i, j,   i,   j-1, YDIR, BSIDE); //  _
 
-            u1[i][j] -= (leftFlux + rightFlux + topFlux + bottomFlux);
+            u1[i][j] -= (rightFlux - leftFlux + topFlux - bottomFlux);
         }
     }
 }
 
 void calculateSolution() {
-    for (int i = 0; i < N; i++) {
-        for (int j = 0; j < N; j++) {
+    for (int i = 1; i <= N; i++) {
+        for (int j = 1; j <= N; j++) {
 
             u1[i][j] *= massMatrix;
             u1[i][j] *= TAU;
@@ -190,6 +193,22 @@ VECTOR getF(int i, int j, Point pt) {
     v[0] = 1.0;
     v[1] = (pt.x - c[i][j].x)/H;
     v[2] = (pt.y - c[i][j].y)/H;
+    return v;
+}
+
+VECTOR getDFDX(int i, int j, Point pt) {
+    VECTOR v(3);
+    v[0] = 0.0;
+    v[1] = 1.0/H;
+    v[2] = 0.0;
+    return v;
+}
+
+VECTOR getDFDY(int i, int j, Point pt) {
+    VECTOR v(3);
+    v[0] = 0.0;
+    v[1] = 0.0;
+    v[2] = 1.0/H;
     return v;
 }
 
@@ -214,8 +233,8 @@ void saveResult(char *fName) {
     fprintf(fp, "x,y,u\n");
     printf("File '%s' saved...\n", fName);
 
-    for(int i = 1; i < N; i++) {
-        for(int j = 1; j < N; j++) {
+    for(int i = 1; i <= N; i++) {
+        for(int j = 1; j <= N; j++) {
             double val = getU(i, j, c[i][j]);
             fprintf(fp, "%f,%f,%f\n", c[i][j].x, c[i][j].y, val);
         }
@@ -231,8 +250,8 @@ void incrementTime() {
 
 void fillWithInitialData() {
     const double r = 0.2;
-    for (int i = 0; i <N+2; i++) {
-        for (int j = 0; j < N+2; j++) {
+    for (int i = 1; i <= N; i++) {
+        for (int j = 1; j <= N; j++) {
             u[i][j] = VECTOR(3);
             u1[i][j] = VECTOR(3);
 
@@ -250,15 +269,15 @@ void fillWithInitialData() {
 }
 
 void calculateCellCenters() {
-    for (int i = 1; i < N; i++) {
-        for (int j = 1; j < N; j++) {
+    for (int i = 1; i <= N; i++) {
+        for (int j = 1; j <= N; j++) {
             c[i][j] = Point(i*H + H/2, j*H + H/2);
         }
     }
 }
 
 void set_bounds() {
-    for (int i = 1; i < N; i++) {
+    for (int i = 1; i <= N; i++) {
         u[0][i] = u[N][i];
         u[N+1][i] = u[1][i];
         u[i][0] = u[i][N];

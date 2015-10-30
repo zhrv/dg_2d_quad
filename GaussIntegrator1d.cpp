@@ -2,11 +2,14 @@
 
 GaussIntegrator1d::GaussIntegrator1d(double a, double b) {
     _h = (b - a)/2;
-
     _points = new double[2];
     double c = (a + b)/2;
     _points[0] = c - _h*sqrt3;
     _points[1] = c + _h*sqrt3;
+}
+
+GaussIntegrator1d::~GaussIntegrator1d() {
+    delete[] _points;
 }
 
 double GaussIntegrator1d::getFirstPoint() {

@@ -15,7 +15,7 @@ public:
 
     double calculate(double* values);
 
-    const int N = 4;
+    static const int N = 4;
 private:
     double sqrt3 = 1/sqrt(3);
     double g_points[4][2] = { { -sqrt3, -sqrt3 },
