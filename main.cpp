@@ -1,8 +1,6 @@
 #include <iostream>
 #include "cmath"
 #include "global.h"
-#include "GaussIntegrator1d.h"
-#include "GaussIntegrator2D.h"
 
 /**
  * du/dt + Vx*du/dx + Vy*du/dy=0
